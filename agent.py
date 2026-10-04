@@ -5,7 +5,7 @@ import json
 from openai import OpenAI
 
 def fetch_rss_news(url):
-    """Безопасный сбор новостей с маскировкой под браузер"""
+    """Безопасный сбор новостей с жесткой проверкой на пустые значения (None)"""
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
         req = urllib.request.Request(url, headers=headers)
@@ -21,9 +21,10 @@ def fetch_rss_news(url):
             link = item.find('link')
             desc = item.find('description')
             
-            title_text = title.text if title is not None else ''
-            link_text = link.text if link is not None else ''
-            desc_text = desc.text if desc is not None else ''
+            # Защита от NoneType: если поля нет, берем пустую строку
+            title_text = title.text if (title is not None and title.text is not None) else ''
+            link_text = link.text if (link is not None and link.text is not None) else ''
+            desc_text = desc.text if (desc is not None and desc.text is not None) else ''
             
             if title_text:
                 articles.append({
@@ -37,12 +38,11 @@ def fetch_rss_news(url):
         return []
 
 def run_agent():
-    # 1. Используем 100% стабильную и чистую спортивную RSS-ленту
+    # Используем открытый новостной RSS-экспорт (работает всегда)
     urls = [
         "https://www.sport.ru/rssfeeds/news.rss"
     ]
 
-    # 2. Собираем новости
     all_news = []
     print("🔄 Запуск обхода спортивных источников...")
     for url in urls:
@@ -52,22 +52,21 @@ def run_agent():
         print("❌ ОШИБКА: Не удалось собрать новости.")
         return
 
-    # Превращаем собранное в текст для ИИ
+    # Формируем текст для ИИ
     raw_news_text = ""
-    for a in all_news[:10]:
+    for a in all_news[:15]:
         raw_news_text += f"Новость: {a['title']}\nОписание: {a['summary']}\nСсылка: {a['link']}\n---\n"
 
-    # 3. Пробуем отправить в OpenAI
     api_key = os.environ.get("OPENAI_API_KEY")
     ai_success = False
     ai_result_json = ""
 
+    # 3. Запрос к OpenAI
     if api_key:
         try:
             client = OpenAI(api_key=api_key)
             print("🧠 Отправляю собранное в OpenAI...")
             
-            # Читаем фильтры интересов
             interests = "Оставляй новости про лыжные гонки, зимний спорт, российских и скандинавских лыжников."
             if os.path.exists('interests.txt'):
                 with open('interests.txt', 'r', encoding='utf-8') as f:
@@ -88,28 +87,29 @@ def run_agent():
                 temperature=0.3
             )
             ai_result_json = response.choices.message.content.strip()
-            ai_success = True
-            print("✅ ИИ успешно обработал новости!")
+            # Проверяем, что ИИ не вернул пустую строку
+            if ai_result_json and ai_result_json != "[]":
+                ai_success = True
+                print("✅ ИИ успешно обработал новости!")
         except Exception as e:
-            print(f"⚠️ Ошибка OpenAI ({e}). Включаю аварийный режим без ИИ...")
+            print(f"⚠️ Ошибка OpenAI ({e}). Включаю аварийный режим...")
 
-    # Если ИИ не сработал (нет денег на балансе), используем собранные новости напрямую
+    # Если ИИ отключен или вернул пустоту, включаем ручной фильтр
     if not ai_success:
-        # Фильтруем новости по ключевым словам вручную (аварийный режим)
-        keywords = ["лыж", "лыжн", "гонк", "большунов", "клэбо", "непряева", "коростелев", "коростелёв"]
+        keywords = ["лыж", "лыжн", "гонк", "большунов", "клэбо", "непряева", "коростелев", "коростелёв", "устюгов", "ступпак", "сборн"]
         filtered = []
         for a in all_news:
             text_to_check = (a['title'] + a['summary']).lower()
             if any(kw in text_to_check for kw in keywords):
                 filtered.append(a)
         
-        # Если ручной фильтр ничего не нашёл, берём просто первые 5 спортивных новостей
+        # Если ручной лыжный фильтр пуст, берем последние главные новости спорта
         if not filtered:
-            filtered = all_news[:5]
+            filtered = all_news[:6]
             
         ai_result_json = json.dumps(filtered, ensure_ascii=False)
 
-    # 4. Генерируем HTML-страницу
+    # 4. Генерируем красивую HTML-страницу
     html_template = f"""
     <!DOCTYPE html>
     <html lang="ru">
@@ -124,7 +124,7 @@ def run_agent():
             <header class="mb-12 text-center">
                 <span class="text-4xl">🎿</span>
                 <h1 class="text-4xl font-black text-slate-900 mt-2 tracking-tight">Лыжный ИИ-Агент</h1>
-                <p class="text-slate-500 mt-2">Свежие новости из мира лыжных гонок</p>
+                <p class="text-slate-500 mt-2">Свежие и отфильтрованные новости лыжного спорта</p>
             </header>
             <main id="news-container" class="space-y-6"><!-- Новости --></main>
         </div>
@@ -135,16 +135,16 @@ def run_agent():
                 if (Array.isArray(newsData) && newsData.length > 0) {{
                     newsData.forEach(item => {{
                         const article = document.createElement('article');
-                        article.className = 'p-6 bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition duration-200';
+                        article.className = 'p-6 bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition';
                         article.innerHTML = `
                             <h2 class="text-xl font-bold text-slate-900"><a href="${{item.link}}" target="_blank" class="hover:text-blue-600">${{item.title}}</a></h2>
-                            <p class="mt-2 text-slate-600">${{item.summary}}</p>
-                            <div class="mt-3"><a href="${{item.link}}" target="_blank" class="text-sm font-semibold text-blue-500 hover:underline">Читать источник →</a></div>
+                            <p class="mt-2 text-slate-600 leading-relaxed">${{item.summary}}</p>
+                            <div class="mt-3"><a href="${{item.link}}" target="_blank" class="text-sm font-semibold text-blue-500 hover:underline">Читать оригинал →</a></div>
                         `;
                         container.appendChild(article);
                     }});
                 }} else {{
-                    container.innerHTML = '<p class="text-center text-slate-500">Пока нет новостей по выбранным критериям.</p>';
+                    container.innerHTML = '<p class="text-center text-slate-500">Пока нет громких лыжных новостей.</p>';
                 }}
             }} catch(e) {{
                 document.getElementById('news-container').innerHTML = '<p class="text-center text-red-500">Ошибка отображения.</p>';
@@ -156,7 +156,7 @@ def run_agent():
 
     with open('index.html', 'w', encoding='utf-8') as f:
         f.write(html_template)
-    print("💾 Файл index.html успешно обновлен!")
+    print("💾 Файл index.html успешно создан!")
 
 if __name__ == "__main__":
     run_agent()
