@@ -1,24 +1,22 @@
 import os
 import urllib.request
 import xml.etree.ElementTree as ET
+import json
 from openai import OpenAI
 
 def fetch_rss_news(url):
-    """Метод с маскировкой под настоящий браузер для обхода блокировок"""
+    """Безопасный сбор новостей с маскировкой под браузер"""
     try:
-        # Маскируемся под обычный браузер Chrome на Windows
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
         req = urllib.request.Request(url, headers=headers)
         
         with urllib.request.urlopen(req, timeout=15) as response:
             xml_data = response.read()
             
-        # Парсим XML (структуру RSS) вручную встроенными силами Python
         root = ET.fromstring(xml_data)
         articles = []
         
-        # В RSS новости лежат внутри тегов <item>
-        for item in root.findall('.//item')[:10]:
+        for item in root.findall('.//item')[:15]:
             title = item.find('title')
             link = item.find('link')
             desc = item.find('description')
@@ -28,79 +26,90 @@ def fetch_rss_news(url):
             desc_text = desc.text if desc is not None else ''
             
             if title_text:
-                articles.append(f"Заголовок: {title_text}\nОписание: {desc_text}\nСсылка: {link_text}\n---")
+                articles.append({
+                    "title": title_text,
+                    "summary": desc_text[:200] + "..." if len(desc_text) > 200 else desc_text,
+                    "link": link_text
+                })
         return articles
     except Exception as e:
-        print(f"⚠️ Ошибка при чтении ленты {url}: {e}")
+        print(f"⚠️ Пропущена лента из-за ошибки: {e}")
         return []
 
 def run_agent():
-    # 1. Задаем жесткий список источников прямо в коде, чтобы не зависеть от файлов
+    # 1. Используем 100% стабильную и чистую спортивную RSS-ленту
     urls = [
-        "https://www.sport.ru/rssfeeds/news.rss",        # Стабильная общая спортивная лента
-        "https://barentsobserver.com"          # Скандинавский вестник на русском
+        "https://www.sport.ru/rssfeeds/news.rss"
     ]
 
-    # 2. Читаем интересы пользователя
-    interests = "Собери главные новости про лыжные гонки."
-    if os.path.exists('interests.txt'):
-        with open('interests.txt', 'r', encoding='utf-8') as f:
-            interests = f.read()
-
-    # 3. Собираем новости
+    # 2. Собираем новости
     all_news = []
-    print(f"🔄 Запуск обхода {len(urls)} источников с маскировкой под браузер...")
-    
+    print("🔄 Запуск обхода спортивных источников...")
     for url in urls:
-        news_from_source = fetch_rss_news(url)
-        print(f"📖 Источник {url} отдал {len(news_from_source)} новостей.")
-        all_news.extend(news_from_source)
+        all_news.extend(fetch_rss_news(url))
 
     if not all_news:
-        print("❌ ОШИБКА: Не удалось собрать ни одной новости даже с маскировкой. Защита сайтов заблокировала робота.")
+        print("❌ ОШИБКА: Не удалось собрать новости.")
         return
 
-    raw_news_text = "\n".join(all_news)
+    # Превращаем собранное в текст для ИИ
+    raw_news_text = ""
+    for a in all_news[:10]:
+        raw_news_text += f"Новость: {a['title']}\nОписание: {a['summary']}\nСсылка: {a['link']}\n---\n"
 
-    # 4. Обращаемся к OpenAI
+    # 3. Пробуем отправить в OpenAI
     api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        print("❌ ОШИБКА: Не найден OPENAI_API_KEY в Секретах GitHub!")
-        return
+    ai_success = False
+    ai_result_json = ""
 
-    try:
-        client = OpenAI(api_key=api_key)
+    if api_key:
+        try:
+            client = OpenAI(api_key=api_key)
+            print("🧠 Отправляю собранное в OpenAI...")
+            
+            # Читаем фильтры интересов
+            interests = "Оставляй новости про лыжные гонки, зимний спорт, российских и скандинавских лыжников."
+            if os.path.exists('interests.txt'):
+                with open('interests.txt', 'r', encoding='utf-8') as f:
+                    interests = f.read()
 
-        system_instruction = f"""
-        Ты — профессиональный спортивный аналитик, эксперт в лыжных гонках.
-        Изучи сырой список спортивных новостей.
+            system_instruction = f"""
+            Ты — эксперт в лыжных гонках. Из списка новостей оставь ТОЛЬКО те, которые соответствуют фильтру: {interests}.
+            Удали дубликаты. Оформи результат строго в формате JSON: [{"title": "...", "summary": "...", "link": "..."}].
+            Не используй разметку ```json. Отвечай только чистым массивом.
+            """
+
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": raw_news_text}
+                ],
+                temperature=0.3
+            )
+            ai_result_json = response.choices.message.content.strip()
+            ai_success = True
+            print("✅ ИИ успешно обработал новости!")
+        except Exception as e:
+            print(f"⚠️ Ошибка OpenAI ({e}). Включаю аварийный режим без ИИ...")
+
+    # Если ИИ не сработал (нет денег на балансе), используем собранные новости напрямую
+    if not ai_success:
+        # Фильтруем новости по ключевым словам вручную (аварийный режим)
+        keywords = ["лыж", "лыжн", "гонк", "большунов", "клэбо", "непряева", "коростелев", "коростелёв"]
+        filtered = []
+        for a in all_news:
+            text_to_check = (a['title'] + a['summary']).lower()
+            if any(kw in text_to_check for kw in keywords):
+                filtered.append(a)
         
-        Выполни задачи:
-        1. Отфильтруй новости строго по правилам пользователя: {interests}
-           (Оставляй ТОЛЬКО новости, прямо или косвенно связанные с зимними видами спорта, лыжными гонками, спортсменами скандинавских стран и России).
-        2. Удали явные дубликаты.
-        3. Оформи результат строго в формате JSON (массив объектов), где у каждой новости будут поля: "title", "summary", "link".
-        Отвечай ТОЛЬКО чистым JSON массивом, без разметки ```json в начале и конце.
-        """
+        # Если ручной фильтр ничего не нашёл, берём просто первые 5 спортивных новостей
+        if not filtered:
+            filtered = all_news[:5]
+            
+        ai_result_json = json.dumps(filtered, ensure_ascii=False)
 
-        print("🧠 Отправляю собранное в OpenAI...")
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": f"Свежие новости:\n\n{raw_news_text}"}
-            ],
-            temperature=0.3
-        )
-
-        ai_result = response.choices.message.content.strip()
-        print("✅ ИИ успешно отфильтровал и вернул JSON.")
-        
-    except Exception as e:
-        print(f"❌ ОШИБКА при запросе к OpenAI: {e}")
-        return
-
-    # 5. Генерируем HTML-страницу
+    # 4. Генерируем HTML-страницу
     html_template = f"""
     <!DOCTYPE html>
     <html lang="ru">
@@ -115,30 +124,30 @@ def run_agent():
             <header class="mb-12 text-center">
                 <span class="text-4xl">🎿</span>
                 <h1 class="text-4xl font-black text-slate-900 mt-2 tracking-tight">Лыжный ИИ-Агент</h1>
-                <p class="text-slate-500 mt-2">Свежие и отфильтрованные новости лыжного спорта</p>
+                <p class="text-slate-500 mt-2">Свежие новости из мира лыжных гонок</p>
             </header>
             <main id="news-container" class="space-y-6"><!-- Новости --></main>
         </div>
         <script>
             try {{
-                const newsData = {ai_result};
+                const newsData = {ai_result_json};
                 const container = document.getElementById('news-container');
                 if (Array.isArray(newsData) && newsData.length > 0) {{
                     newsData.forEach(item => {{
                         const article = document.createElement('article');
-                        article.className = 'p-6 bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition';
+                        article.className = 'p-6 bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition duration-200';
                         article.innerHTML = `
                             <h2 class="text-xl font-bold text-slate-900"><a href="${{item.link}}" target="_blank" class="hover:text-blue-600">${{item.title}}</a></h2>
-                            <p class="mt-2 text-slate-600 leading-relaxed">${{item.summary}}</p>
-                            <div class="mt-3"><a href="${{item.link}}" target="_blank" class="text-sm font-semibold text-blue-500 hover:underline">Читать оригинал →</a></div>
+                            <p class="mt-2 text-slate-600">${{item.summary}}</p>
+                            <div class="mt-3"><a href="${{item.link}}" target="_blank" class="text-sm font-semibold text-blue-500 hover:underline">Читать источник →</a></div>
                         `;
                         container.appendChild(article);
                     }});
                 }} else {{
-                    container.innerHTML = '<p class="text-center text-slate-500">Пока нет громких лыжных новостей, соответствующих фильтрам.</p>';
+                    container.innerHTML = '<p class="text-center text-slate-500">Пока нет новостей по выбранным критериям.</p>';
                 }}
             }} catch(e) {{
-                document.getElementById('news-container').innerHTML = '<p class="text-center text-red-500">Ошибка обработки данных ИИ.</p>';
+                document.getElementById('news-container').innerHTML = '<p class="text-center text-red-500">Ошибка отображения.</p>';
             }}
         </script>
     </body>
@@ -147,7 +156,7 @@ def run_agent():
 
     with open('index.html', 'w', encoding='utf-8') as f:
         f.write(html_template)
-    print("💾 Файл index.html успешно создан и записан!")
+    print("💾 Файл index.html успешно обновлен!")
 
 if __name__ == "__main__":
     run_agent()
