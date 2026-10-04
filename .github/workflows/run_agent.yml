@@ -1,0 +1,37 @@
+name: Run Ski News Agent
+
+# Настройка расписания запуска
+on:
+  schedule:
+    - cron: '0 3 * * *' # Запуск каждый день в 03:00 UTC (это 06:00 по Московскому времени)
+  workflow_dispatch: # Позволяет запускать робота вручную кнопкой в любое время
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Выделяем виртуальный компьютер на Linux
+
+    steps:
+    - name: Проверяем файлы репозитория
+      uses: actions/checkout@v4
+
+    - name: Настраиваем Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Устанавливаем библиотеки для парсинга и ИИ
+      run: |
+        pip install feedparser openai
+
+    - name: Запускаем ИИ-агента
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} # Передаем наш секретный ключ в код
+      run: python agent.py
+
+    - name: Сохраняем измененный index.html на сайт
+      run: |
+        git config --global user.name "GitHub Action Bot"
+        git config --global user.email "actions@github.com"
+        git add index.html
+        git commit -m "Автоматическое обновление новостей [ИИ-Агент]" || echo "Нет новых изменений"
+        git push
