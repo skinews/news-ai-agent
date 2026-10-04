@@ -1,0 +1,43 @@
+
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Лыжный ИИ-Дайджест</title>
+        <script src="https://jsdelivr.net"></script>
+    </head>
+    <body class="bg-slate-50 text-slate-800 font-sans">
+        <div class="max-w-4xl mx-auto py-12 px-4">
+            <header class="mb-12 text-center">
+                <span class="text-4xl">🎿</span>
+                <h1 class="text-4xl font-black text-slate-900 mt-2 tracking-tight">Лыжный ИИ-Агент</h1>
+                <p class="text-slate-500 mt-2">Свежие и отфильтрованные новости лыжного спорта</p>
+            </header>
+            <main id="news-container" class="space-y-6"><!-- Новости --></main>
+        </div>
+        <script>
+            try {
+                const newsData = [{"title": "Португальский журналист объяснил, почему Криштиану Роналду может вернуться в сборную ", "summary": "<div>У Роналду есть цель.&nbsp;</div>", "link": "https://www.sport.ru/football/portugalskiy-jurnalist-obyyasnil-pochemu-krishtianu-ronaldu-mojet-vernutsya-v-/article660455/"}, {"title": "\"Возможно, заявку потеряли\". Лыжнки Коростелёв высказался об отзыве нейтрального статуса", "summary": "<div>Коростелёв считает, что всему виной бюрократические проблемы.&nbsp;</div>", "link": "https://www.sport.ru/lyjnye_gonki/vozmojno-zayavku-poteryali-lyjnki-korostelev-vyskazalsya-ob-otzyve-neytralnogo-/article660453/"}];
+                const container = document.getElementById('news-container');
+                if (Array.isArray(newsData) && newsData.length > 0) {
+                    newsData.forEach(item => {
+                        const article = document.createElement('article');
+                        article.className = 'p-6 bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition';
+                        article.innerHTML = `
+                            <h2 class="text-xl font-bold text-slate-900"><a href="${item.link}" target="_blank" class="hover:text-blue-600">${item.title}</a></h2>
+                            <p class="mt-2 text-slate-600 leading-relaxed">${item.summary}</p>
+                            <div class="mt-3"><a href="${item.link}" target="_blank" class="text-sm font-semibold text-blue-500 hover:underline">Читать оригинал →</a></div>
+                        `;
+                        container.appendChild(article);
+                    });
+                } else {
+                    container.innerHTML = '<p class="text-center text-slate-500">Пока нет громких лыжных новостей.</p>';
+                }
+            } catch(e) {
+                document.getElementById('news-container').innerHTML = '<p class="text-center text-red-500">Ошибка отображения.</p>';
+            }
+        </script>
+    </body>
+    </html>
+    
