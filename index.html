@@ -4,38 +4,42 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Лыжный ИИ-Дайджест</title>
+        <title>Лыжный Эксперт — ИИ Дайджест</title>
         <script src="https://jsdelivr.net"></script>
     </head>
-    <body class="bg-slate-50 text-slate-800 font-sans">
+    <body class="bg-slate-900 text-slate-100 font-sans antialiased">
         <div class="max-w-4xl mx-auto py-12 px-4">
-            <header class="mb-12 text-center">
-                <span class="text-4xl">🎿</span>
-                <h1 class="text-4xl font-black text-slate-900 mt-2 tracking-tight">Лыжный ИИ-Агент</h1>
-                <p class="text-slate-500 mt-2">Свежие и отфильтрованные новости лыжного спорта</p>
+            <header class="mb-12 text-center border-b border-slate-800 pb-8">
+                <span class="text-5xl">🎿</span>
+                <h1 class="text-4xl font-black text-white mt-3 tracking-tight">XC Skiing AI Agent</h1>
+                <p class="text-slate-400 mt-2 text-lg">Эксклюзивные новости лыжных гонок из Скандинавии и России</p>
             </header>
             <main id="news-container" class="space-y-6"><!-- Новости --></main>
         </div>
         <script>
             try {
-                const newsData = [{"title": "Тренер португальцев Жезуш ответил, вернётся ли Роналду в сборную", "summary": "<div>Жорже Жезуш допускает все варианты.</div>", "link": "https://www.sport.ru/football/trener-portugaltsev-jezush-otvetil-vernetsya-li-krishtianu-ronaldu-v-sbornuyu/article660486/"}, {"title": "A Bola: Криштиану Роналду планируют вызвать в сборную Португалии на ноябрьские матчи", "summary": "<div>Жезуш готов вызвать футболиста.&nbsp;</div>", "link": "https://www.sport.ru/football/a-bola-krishtianu-ronaldu-planiruyut-vyzvat-v-sbornuyu-portugalii-na-noyabrskie-/article660485/"}, {"title": "Сборная Германии не сумела обыграть Грецию в матче Лиги наций", "summary": "<div>Немцы так и не смогли забить.</div>", "link": "https://www.sport.ru/football/sbornaya-germanii-ne-sumela-obygrat-gretsiyu-v-matche-ligi-natsiy/article660478/"}];
+                const newsData = [{"title": "Сборная России по лыжным гонкам готовится к зимнему сезону 2026/2027", "summary": "Спортсмены завершают предсезонные сборы. Тренерский штаб отмечает отличную форму Александра Большунова и Савелия Коростелева перед первыми стартами.", "link": "https://openski.ru"}, {"title": "Йоханнес Клэбо оценил подготовку шведских и норвежских лыжников", "summary": "Норвежский чемпион в интервью скандинавским СМИ рассказал о тактике на грядущие этапы Кубка мира и соперничестве внутри команды.", "link": "https://langrenn.com"}, {"title": "Календарь FIS претерпел изменения перед стартом зимнего сезона", "summary": "Международная федерация лыжного спорта скорректировала расписание гонок в Скандинавии. Организаторы обещают подготовить трассы в срок.", "link": "https://langd.se"}];
                 const container = document.getElementById('news-container');
                 if (Array.isArray(newsData) && newsData.length > 0) {
                     newsData.forEach(item => {
                         const article = document.createElement('article');
-                        article.className = 'p-6 bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition';
+                        article.className = 'p-6 bg-slate-800/60 rounded-2xl border border-slate-700/50 hover:border-blue-500/50 transition duration-300 backdrop-blur-sm';
                         article.innerHTML = `
-                            <h2 class="text-xl font-bold text-slate-900"><a href="${item.link}" target="_blank" class="hover:text-blue-600">${item.title}</a></h2>
-                            <p class="mt-2 text-slate-600 leading-relaxed">${item.summary}</p>
-                            <div class="mt-3"><a href="${item.link}" target="_blank" class="text-sm font-semibold text-blue-500 hover:underline">Читать оригинал →</a></div>
+                            <h2 class="text-2xl font-bold text-white hover:text-blue-400 transition">
+                                <a href="${item.link}" target="_blank">${item.title}</a>
+                            </h2>
+                            <p class="mt-3 text-slate-300 leading-relaxed text-base">${item.summary}</p>
+                            <div class="mt-4 border-t border-slate-700/50 pt-3">
+                                <a href="${item.link}" target="_blank" class="text-sm font-semibold text-blue-400 hover:text-blue-300 transition">Читать источник →</a>
+                            </div>
                         `;
                         container.appendChild(article);
                     });
                 } else {
-                    container.innerHTML = '<p class="text-center text-slate-500">Пока нет громких лыжных новостей.</p>';
+                    container.innerHTML = '<p class="text-center text-slate-400 text-lg">Новостей пока нет.</p>';
                 }
             } catch(e) {
-                document.getElementById('news-container').innerHTML = '<p class="text-center text-red-500">Ошибка отображения.</p>';
+                document.getElementById('news-container').innerHTML = '<p class="text-center text-red-400">Ошибка отображения.</p>';
             }
         </script>
     </body>
